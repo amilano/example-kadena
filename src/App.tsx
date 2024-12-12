@@ -130,15 +130,20 @@ function App() {
       });
     }
 
-    return buildTransferCreateTransaction({
-      to,
-      from,
-      amount,
-      chainId,
-      senderPubKey,
-      receiverPubKey,
-      isSpireKeyAccount,
-    });
+    try {
+      return await buildTransferCreateTransaction({
+        to,
+        from,
+        amount,
+        chainId,
+        senderPubKey,
+        receiverPubKey,
+        isSpireKeyAccount,
+      });
+    } catch (error) {
+      console.error("Failed to build transaction", error);
+      throw error;
+    }
   };
 
   const signTransaction = async (transaction: IUnsignedCommand) => {
@@ -204,16 +209,22 @@ function App() {
     const receiverPubKey = accountToPublicKey(to);
     const isSpireKeyAccount = Boolean(userInfo?.loginType === "spirekey");
 
-    return buildTransferCrosschainTransaction({
-      to,
-      from,
-      amount,
-      toChainId,
-      fromChainId,
-      senderPubKey,
-      receiverPubKey,
-      isSpireKeyAccount,
-    });
+    try {
+      return await buildTransferCrosschainTransaction({
+        to,
+        from,
+        amount,
+        toChainId,
+        fromChainId,
+        senderPubKey,
+        receiverPubKey,
+        isSpireKeyAccount,
+      });
+    } catch (error) {
+      console.error("Failed to build transaction", error);
+      throw error;
+    }
+
   };
 
   // Cross Chain Transaction

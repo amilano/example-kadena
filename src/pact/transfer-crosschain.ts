@@ -1,6 +1,9 @@
 import { ChainId, Pact, ISigner, literal, readKeyset } from "@kadena/client";
 import { NETWORK_ID } from "../utils/constants";
 import { IPactDecimal } from "@kadena/types";
+import { checkKeysetRefExists } from "../utils/check-keyset-ref-exists";
+import { accountProtocol } from "../utils/account-protocol";
+import { accountGuard } from "../utils/account-guard";
 
 interface TransferCrosschainTransaction {
   to: string;
@@ -13,7 +16,7 @@ interface TransferCrosschainTransaction {
   isSpireKeyAccount: boolean;
 }
 
-export const buildTransferCrosschainTransaction = ({
+export const buildTransferCrosschainTransaction = async ({
   to,
   from,
   amount,
@@ -31,14 +34,12 @@ export const buildTransferCrosschainTransaction = ({
       }
     : senderPubKey;
 
-  const guard = isSpireKeyAccount ? literal(`(keyset-ref-guard "${to.substring(2)}")`) : readKeyset("receiverKeyset");
-
-  return Pact.builder
+  const pactBuilder = Pact.builder
     .execution(
       (Pact.modules as any).coin.defpact["transfer-crosschain"](
         from,
         to,
-        guard,
+        accountGuard(to),
         toChainId,
         amount
       )
@@ -47,8 +48,18 @@ export const buildTransferCrosschainTransaction = ({
       signFor("coin.GAS"),
       signFor("coin.TRANSFER_XCHAIN", from, to, amount, toChainId),
     ])
-    .addKeyset("receiverKeyset", "keys-all", receiverPubKey)
     .setMeta({ chainId: fromChainId, senderAccount: from })
-    .setNetworkId(NETWORK_ID)
+    .setNetworkId(NETWORK_ID);
+
+  if (accountProtocol(to) === 'r:') {
+    const keysetRefExists = await checkKeysetRefExists(to.substring(2), toChainId);
+    if (!keysetRefExists) {
+      console.error(`Keyset reference guard "${to.substring(2)}" does not exist on chain ${toChainId}`);
+      throw new Error(`Keyset reference guard "${to.substring(2)}" does not exist on chain ${toChainId}`);
+    }
+    return pactBuilder.createTransaction();
+  }
+  return pactBuilder
+    .addKeyset("receiverKeyset", "keys-all", receiverPubKey)
     .createTransaction();
 };
